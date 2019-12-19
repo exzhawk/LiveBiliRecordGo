@@ -24,15 +24,15 @@ const (
 	BaseRoomUrl = "http://live.bilibili.com/%d"
 	//BaseCidUrl      = "http://live.bilibili.com/api/player?id=cid:%d"
 	BaseCidUrl      = "https://api.live.bilibili.com/room/v1/Room/get_info?device=phone&platform=ios&scale=3&build=10000&room_id=%d"
-	BasePlayUrl     = "http://api.live.bilibili.com/api/playurl?cid=%d&otype=json&quality=0&platform=web"
+	BasePlayUrl     = "https://api.live.bilibili.com/room/v1/Room/playUrl?cid=%d&qn=0&platform=web"
 	VideoUrlChoice  = "url"
 	RoomIdReString  = "ROOMID: (\\d+)"
 	BaseRoomIdUrl   = "http://api.live.bilibili.com/room/v1/Room/room_init?id=%d"
 	ProtocolVersion = 1
 	BaseFilename    = "{}_{}.flv"
-	//BaseWsUrl        = "ws://broadcastlv.chat.bilibili.com:2244/sub"
-	BaseWsUrl   = "%s://%s:%d/sub"
-	BaseConfUrl = "https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id=%d&platform=h5"
+	WssUrl          = "wss://broadcastlv.chat.bilibili.com/sub"
+	BaseWsUrl       = "%s://%s:%d/sub"
+	BaseConfUrl     = "https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id=%d&platform=h5"
 )
 
 var roomIdRe, _ = regexp.Compile(RoomIdReString)
@@ -51,8 +51,10 @@ type BiliMsgJson struct {
 	Cmd string
 }
 type BiliPlayUrlJson struct {
-	Durl []struct {
-		Url string
+	Data struct {
+		Durl []struct {
+			Url string
+		}
 	}
 }
 type BiliXml struct {
@@ -90,6 +92,8 @@ type BiliConfJson struct {
 //go receiving(){if live, chan<-download}
 //go heartbeat()
 var urlId int = 281
+
+//var urlId int = 220416
 
 //var urlId int = 220416
 var downloadDir string = "r"
@@ -239,7 +243,7 @@ func download(downloadChan <-chan time.Time, roomId int) {
 		if err != nil {
 			log.Println("json unmarshal error: ", err)
 		}
-		videoUrl := j.Durl[0].Url
+		videoUrl := j.Data.Durl[0].Url
 		log.Println("download video from: ", videoUrl)
 		downloadBigFile(videoUrl, downloadTime)
 
@@ -381,7 +385,8 @@ func connectWs(playerInfo map[string]string) (biliConn *BiliConn) {
 		log.Println("json unmarshal error: ")
 	}
 	log.Println("connecting websocket")
-	wsUrl := fmt.Sprintf(BaseWsUrl, "wss", j.Data.Host_server_list[0].Host, j.Data.Host_server_list[0].Wss_port)
+	//wsUrl := fmt.Sprintf(BaseWsUrl, "wss", j.Data.Host_server_list[0].Host, j.Data.Host_server_list[0].Wss_port)
+	wsUrl := WssUrl
 	conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
 	if err != nil {
 		log.Fatal("dial: ", err)
