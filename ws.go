@@ -179,7 +179,7 @@ func parseMessage(message []byte, downloadChan chan<- time.Time) {
 			"NOTICE_MSG", "ROOM_REAL_TIME_MESSAGE_UPDATE", "USER_TOAST_MSG", "GUARD_LOTTERY_START", "TV_END",
 			"ACTIVITY_BANNER_RED_NOTICE_CLOSE", "WEEK_STAR_CLOCK", "DAILY_QUEST_NEWDAY", "GUIARD_MSG", "ROOM_CHANGE",
 			"ROOM_BOX_MASTER", "HOUR_RANK_AWARDS", "ROOM_SKIN_MSG", "CHANGE_ROOM_INFO", "ACTIVITY_BANNER_UPDATE_V2",
-			"DANMU_MSG:4:0:2:2:2:0":
+			"DANMU_MSG:4:0:2:2:2:0", "VOICE_JOIN_ROOM_COUNT_INFO", "VOICE_JOIN_LIST", "PK_BATTLE_ENTRANCE":
 			//log.Println("receive message: ", j.Cmd)
 		default:
 			log.Println("receive unknown: ", j.Cmd)
