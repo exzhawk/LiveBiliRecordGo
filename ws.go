@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"compress/flate"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -33,6 +34,7 @@ const (
 	WssUrl          = "wss://broadcastlv.chat.bilibili.com/sub"
 	BaseWsUrl       = "%s://%s:%d/sub"
 	BaseConfUrl     = "https://api.live.bilibili.com/room/v1/Danmu/getConf?room_id=%d&platform=h5"
+	BaseJoinJson    = "{\"uid\":0,\"roomid\":%d,\"protover\":2,\"platform\":\"web\",\"clientver\":\"1.10.6\",\"type\":2}"
 )
 
 var roomIdRe, _ = regexp.Compile(RoomIdReString)
@@ -41,11 +43,11 @@ type BiliConn struct {
 	*websocket.Conn
 }
 type Header struct {
-	Length       uint32
-	HeaderLength uint16
-	MagicNum1    uint16
-	Action       uint32
-	MagicNum2    uint32
+	Length          uint32
+	HeaderLength    uint16
+	ProtocolVersion uint16
+	Operation       uint32
+	SequenceId      uint32
 }
 type BiliMsgJson struct {
 	Cmd string
@@ -155,36 +157,53 @@ func parseMessage(message []byte, downloadChan chan<- time.Time) {
 	}
 	length := header.Length
 	bodyBytes := message[16:length]
-	switch action := int(header.Action); action {
-	case 8:
-		log.Println("joined room")
-	case 3:
-		//log.Println("online number")
-	case 5:
-		var j BiliMsgJson
-		err := json.Unmarshal(bodyBytes, &j)
-		if err != nil {
-			log.Println("json unmarshal error", err)
-		}
-		switch cmd := j.Cmd; cmd {
-		case "LIVE":
-			downloadChan <- time.Now()
-		case "PREPARING":
-			log.Println("living stopped")
-		case "DANMU_MSG":
-			//log.Println("receive danmu")
-		case "SEND_GIFT", "WELCOME", "SYS_MSG", "SYS_GIFT", "WELCOME_GUARD", "SPECIAL_GIFT", "BUY_GUARD",
-			"ROOM_BLOCK_MSG", "RAFFLE_START", "RAFFLE_END", "EVENT_CMD", "TV_START", "GUARD_BUY", "ACTIVITY_EVENT",
-			"ROOM_SILENT_OFF", "ROOM_RANK", "COMBO_END", "COMBO_SEND", "ROOM_SILENT_ON", "GUARD_MSG", "ENTRY_EFFECT",
-			"NOTICE_MSG", "ROOM_REAL_TIME_MESSAGE_UPDATE", "USER_TOAST_MSG", "GUARD_LOTTERY_START", "TV_END",
-			"ACTIVITY_BANNER_RED_NOTICE_CLOSE", "WEEK_STAR_CLOCK", "DAILY_QUEST_NEWDAY", "GUIARD_MSG", "ROOM_CHANGE",
-			"ROOM_BOX_MASTER", "HOUR_RANK_AWARDS", "ROOM_SKIN_MSG", "CHANGE_ROOM_INFO", "ACTIVITY_BANNER_UPDATE_V2",
-			"DANMU_MSG:4:0:2:2:2:0", "VOICE_JOIN_ROOM_COUNT_INFO", "VOICE_JOIN_LIST", "PK_BATTLE_ENTRANCE":
-			//log.Println("receive message: ", j.Cmd)
-		default:
-			log.Println("receive unknown: ", j.Cmd)
+	switch protocol := int(header.ProtocolVersion); protocol {
+	case 0:
+		switch operation := int(header.Operation); operation {
+		case 8:
+			log.Println("joined room")
+		case 3:
+			//log.Println("online number")
+		case 5:
+			var j BiliMsgJson
+			err := json.Unmarshal(bodyBytes, &j)
+			if err != nil {
+				log.Println(string(bodyBytes))
+				log.Println("json unmarshal error", err)
+				break
+			}
+			switch cmd := j.Cmd; cmd {
+			case "LIVE":
+				downloadChan <- time.Now()
+			case "PREPARING":
+				log.Println("living stopped")
+			case "DANMU_MSG":
+				//log.Println("receive danmu")
+			case "SEND_GIFT", "WELCOME", "SYS_MSG", "SYS_GIFT", "WELCOME_GUARD", "SPECIAL_GIFT", "BUY_GUARD",
+				"ROOM_BLOCK_MSG", "RAFFLE_START", "RAFFLE_END", "EVENT_CMD", "TV_START", "GUARD_BUY", "ACTIVITY_EVENT",
+				"ROOM_SILENT_OFF", "ROOM_RANK", "COMBO_END", "COMBO_SEND", "ROOM_SILENT_ON", "GUARD_MSG", "ENTRY_EFFECT",
+				"NOTICE_MSG", "ROOM_REAL_TIME_MESSAGE_UPDATE", "USER_TOAST_MSG", "GUARD_LOTTERY_START", "TV_END",
+				"ACTIVITY_BANNER_RED_NOTICE_CLOSE", "WEEK_STAR_CLOCK", "DAILY_QUEST_NEWDAY", "GUIARD_MSG", "ROOM_CHANGE",
+				"ROOM_BOX_MASTER", "HOUR_RANK_AWARDS", "ROOM_SKIN_MSG", "CHANGE_ROOM_INFO", "ACTIVITY_BANNER_UPDATE_V2",
+				"DANMU_MSG:4:0:2:2:2:0", "VOICE_JOIN_ROOM_COUNT_INFO", "VOICE_JOIN_LIST", "PK_BATTLE_ENTRANCE":
+				//log.Println("receive message: ", j.Cmd)
+			default:
+				log.Println("receive unknown: ", j.Cmd)
 
+			}
 		}
+	case 1:
+		return
+	case 2:
+		buffer := bytes.NewBuffer(bodyBytes[2:]) //remove two useless byte
+		flateReader := flate.NewReader(buffer)
+		defer flateReader.Close()
+		decompressedBytes, err := ioutil.ReadAll(flateReader)
+		if err != nil {
+			log.Println("decompress failed", err)
+			break
+		}
+		parseMessage(decompressedBytes, downloadChan)
 	}
 	//there is another message here
 	if len(message) > int(length) {
@@ -199,14 +218,14 @@ func (biliConn *BiliConn) startHeartbeat() {
 		//log.Print("sending heartbeat")
 		err := biliConn.sendData(2, "[object Object]")
 		if err != nil {
-			log.Println("sending error")
+			log.Println("sending error", err)
 			return
 		}
 	}
 }
 func (biliConn *BiliConn) joinRoom(roomId int) {
 	log.Print("joining room: ", roomId)
-	joinBody := fmt.Sprintf("{\"uid\":0,\"roomid\":%d,\"protover\":1}", roomId)
+	joinBody := fmt.Sprintf(BaseJoinJson, roomId)
 	err := biliConn.sendData(7, joinBody)
 	if err != nil {
 		log.Fatal("join fail: ", err)
