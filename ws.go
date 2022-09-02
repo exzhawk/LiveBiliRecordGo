@@ -25,7 +25,7 @@ const (
 	BaseRoomUrl = "http://live.bilibili.com/%d"
 	//BaseCidUrl      = "http://live.bilibili.com/api/player?id=cid:%d"
 	BaseCidUrl      = "https://api.live.bilibili.com/room/v1/Room/get_info?device=phone&platform=ios&scale=3&build=10000&room_id=%d"
-	BasePlayUrl     = "https://api.live.bilibili.com/room/v1/Room/playUrl?cid=%d&qn=0&platform=web"
+	BasePlayUrl     = "https://api.live.bilibili.com/room/v1/Room/playUrl?cid=%d&qn=10000&platform=android"
 	VideoUrlChoice  = "url"
 	RoomIdReString  = "ROOMID: (\\d+)"
 	BaseRoomIdUrl   = "http://api.live.bilibili.com/room/v1/Room/room_init?id=%d"
@@ -330,7 +330,7 @@ IoCopy:
 			}
 		}
 	}
-	log.Printf("downloaded %s", humanize.Bytes(written))
+	log.Printf("downloaded %s", humanize.IBytes(written))
 
 }
 
