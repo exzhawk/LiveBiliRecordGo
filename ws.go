@@ -192,7 +192,8 @@ func parseMessage(message []byte, downloadChan chan<- time.Time) {
 				"HOT_RANK_SETTLEMENT_V2", "VOICE_JOIN_STATUS", "THERMAL_STORM_DANMU_BEGIN",
 				"THERMAL_STORM_DANMU_UPDATE", "THERMAL_STORM_DANMU_OVER", "THERMAL_STORM_DANMU_CANCEL", "TRADING_SCORE",
 				"WATCHED_CHANGE", "POPULARITY_RED_POCKET_WINNER_LIST", "POPULARITY_RED_POCKET_NEW",
-				"POPULARITY_RED_POCKET_START", "GUARD_HONOR_THOUSAND", "GUARD_ACHIEVEMENT_ROOM":
+				"POPULARITY_RED_POCKET_START", "GUARD_HONOR_THOUSAND", "GUARD_ACHIEVEMENT_ROOM", "LIKE_INFO_V3_CLICK",
+				"LIKE_INFO_V3_UPDATE", "CUT_OFF":
 				//log.Println("receive message: ", j.Cmd)
 			default:
 				log.Println("receive unknown: ", j.Cmd)
@@ -278,7 +279,7 @@ func download(downloadChan <-chan time.Time, roomId int) {
 
 }
 func downloadBigFile(downloadUrl string, downloadTime time.Time) {
-	filename := downloadTime.Format("2006-01-02 15-04-04") + ".flv"
+	filename := downloadTime.Format("2006-01-02 15-04-05") + ".flv"
 	out, err := os.Create(path.Join(downloadDir, filename))
 	if err != nil {
 		log.Fatal("create file error: ", err)
